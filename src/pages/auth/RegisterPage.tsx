@@ -128,6 +128,7 @@ export const RegisterPage: React.FC = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              minLength={6}
               fullWidth
               startAdornment={<Lock size={18} />}
             />
@@ -138,6 +139,7 @@ export const RegisterPage: React.FC = () => {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
+              minLength={6}
               fullWidth
               startAdornment={<Lock size={18} />}
             />
