@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { FileText, Upload, Download, Trash2, Share2, Loader2 } from 'lucide-react';
+import { FileText, Upload, Download, Trash2, Share2, Loader2, Pen, Check } from 'lucide-react';
 import { Card, CardHeader, CardBody } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
@@ -14,6 +14,10 @@ interface DocumentModel {
   size: number;
   updatedAt: string;
   isPubliclyShared: boolean;
+  status: string;
+  signatureUrl?: string;
+  signedBy?: string;
+  signedAt?: string;
 }
 
 const formatBytes = (bytes: number, decimals = 2) => {
@@ -30,6 +34,10 @@ export const DocumentsPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const [signingDocId, setSigningDocId] = useState<string | null>(null);
+  const [signatureText, setSignatureText] = useState('');
+  const [isSigning, setIsSigning] = useState(false);
 
   const fetchDocuments = async () => {
     try {
@@ -81,6 +89,37 @@ export const DocumentsPage: React.FC = () => {
       setDocuments(prev => prev.filter(d => d._id !== id));
     } catch (error: any) {
       toast.error('Failed to delete document');
+    }
+  };
+
+  const handleSign = async () => {
+    if (!signingDocId || !signatureText.trim()) return;
+    
+    // Create simple data URL from text representation
+    const canvas = document.createElement('canvas');
+    canvas.width = 400;
+    canvas.height = 100;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillRect(0, 0, 400, 100);
+      ctx.font = 'italic 40px "Times New Roman", serif';
+      ctx.fillStyle = '#000';
+      ctx.fillText(signatureText, 20, 60);
+    }
+    const signatureDataUrl = canvas.toDataURL('image/png');
+
+    setIsSigning(true);
+    try {
+      await api.put(`/documents/${signingDocId}/sign`, { signatureDataUrl });
+      toast.success('Document signed successfully');
+      setSigningDocId(null);
+      setSignatureText('');
+      fetchDocuments();
+    } catch (error: any) {
+      toast.error('Failed to sign document');
+    } finally {
+      setIsSigning(false);
     }
   };
 
@@ -190,6 +229,23 @@ export const DocumentsPage: React.FC = () => {
                       </div>
                       
                       <div className="flex items-center gap-2 ml-4">
+                        {doc.status === 'approved' ? (
+                          <Badge variant="success" size="sm" className="flex items-center gap-1 h-8 px-3">
+                            <Check size={14} /> Signed
+                          </Badge>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="p-2 text-primary-600 hover:bg-primary-50"
+                            onClick={() => setSigningDocId(doc._id)}
+                            aria-label="Sign Document"
+                            title="Sign Document"
+                          >
+                            <Pen size={18} />
+                          </Button>
+                        )}
+                        
                         <Button
                           variant="ghost"
                           size="sm"
@@ -223,6 +279,43 @@ export const DocumentsPage: React.FC = () => {
           </Card>
         </div>
       </div>
+
+      {/* Signature Modal */}
+      {signingDocId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
+            <h3 className="text-lg font-medium text-gray-900">Sign Document</h3>
+            <p className="text-sm text-gray-500">Type your full name to generate an e-signature for this document.</p>
+            
+            <input
+              type="text"
+              placeholder="e.g. John Doe"
+              value={signatureText}
+              onChange={(e) => setSignatureText(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
+              autoFocus
+            />
+            
+            {signatureText && (
+              <div className="mt-4 p-4 border border-gray-200 rounded bg-gray-50 flex justify-center">
+                <span className="font-serif italic text-3xl text-gray-800">{signatureText}</span>
+              </div>
+            )}
+            
+            <div className="flex justify-end gap-3 pt-4">
+              <Button variant="outline" onClick={() => {
+                setSigningDocId(null);
+                setSignatureText('');
+              }} disabled={isSigning}>
+                Cancel
+              </Button>
+              <Button onClick={handleSign} disabled={!signatureText.trim() || isSigning} leftIcon={isSigning ? <Loader2 size={16} className="animate-spin" /> : undefined}>
+                Sign Document
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

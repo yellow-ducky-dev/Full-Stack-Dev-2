@@ -9,6 +9,14 @@ export interface User {
   bio: string;
   isOnline?: boolean;
   createdAt: string;
+  location?: string;
+  startupName?: string;
+  industry?: string;
+  fundingNeeded?: string;
+  website?: string;
+  investmentInterests?: string[];
+  minimumInvestment?: string;
+  maximumInvestment?: string;
 }
 
 export interface Entrepreneur extends User {

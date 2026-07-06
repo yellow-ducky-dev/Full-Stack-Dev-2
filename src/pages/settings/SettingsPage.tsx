@@ -1,5 +1,5 @@
-import React from 'react';
-import { User, Lock, Bell, Globe, Palette, CreditCard } from 'lucide-react';
+import React, { useState } from 'react';
+import { User, Lock, Bell, Globe, Palette, CreditCard, Loader2 } from 'lucide-react';
 import { Card, CardHeader, CardBody } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
@@ -8,9 +8,46 @@ import { Avatar } from '../../components/ui/Avatar';
 import { useAuth } from '../../context/AuthContext';
 
 export const SettingsPage: React.FC = () => {
-  const { user } = useAuth();
+  const { user, updateProfile } = useAuth();
   
+  const [name, setName] = useState(user?.name || '');
+  const [location, setLocation] = useState(user?.location || '');
+  const [bio, setBio] = useState(user?.bio || '');
+  
+  // Entrepreneur fields
+  const [startupName, setStartupName] = useState(user?.startupName || '');
+  const [industry, setIndustry] = useState(user?.industry || '');
+  const [fundingNeeded, setFundingNeeded] = useState(user?.fundingNeeded || '');
+  const [website, setWebsite] = useState(user?.website || '');
+  
+  // Investor fields
+  const [investmentInterests, setInvestmentInterests] = useState(user?.investmentInterests?.join(', ') || '');
+  const [minimumInvestment, setMinimumInvestment] = useState(user?.minimumInvestment || '');
+  const [maximumInvestment, setMaximumInvestment] = useState(user?.maximumInvestment || '');
+
+  const [isSaving, setIsSaving] = useState(false);
+
   if (!user) return null;
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      const payload: any = { name, location, bio };
+      if (user.role === 'entrepreneur') {
+        payload.startupName = startupName;
+        payload.industry = industry;
+        payload.fundingNeeded = fundingNeeded;
+        payload.website = website;
+      } else if (user.role === 'investor') {
+        payload.investmentInterests = investmentInterests.split(',').map((s: string) => s.trim()).filter(Boolean);
+        payload.minimumInvestment = minimumInvestment;
+        payload.maximumInvestment = maximumInvestment;
+      }
+      await updateProfile(user.id, payload);
+    } finally {
+      setIsSaving(false);
+    }
+  };
   
   return (
     <div className="space-y-6 animate-fade-in">
@@ -85,13 +122,15 @@ export const SettingsPage: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Input
                   label="Full Name"
-                  defaultValue={user.name}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
                 />
                 
                 <Input
                   label="Email"
                   type="email"
-                  defaultValue={user.email}
+                  value={user.email}
+                  disabled
                 />
                 
                 <Input
@@ -102,7 +141,9 @@ export const SettingsPage: React.FC = () => {
                 
                 <Input
                   label="Location"
-                  defaultValue="San Francisco, CA"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  placeholder="e.g. San Francisco, CA"
                 />
               </div>
               
@@ -111,15 +152,44 @@ export const SettingsPage: React.FC = () => {
                   Bio
                 </label>
                 <textarea
-                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 px-3 py-2"
                   rows={4}
-                  defaultValue={user.bio}
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
+                  placeholder="Tell us about yourself..."
                 ></textarea>
               </div>
+
+              {user.role === 'entrepreneur' && (
+                <div className="pt-6 border-t border-gray-200">
+                  <h3 className="text-sm font-medium text-gray-900 mb-4">Startup Information</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <Input label="Startup Name" value={startupName} onChange={(e) => setStartupName(e.target.value)} />
+                    <Input label="Industry" value={industry} onChange={(e) => setIndustry(e.target.value)} placeholder="e.g. Fintech, AI" />
+                    <Input label="Funding Needed ($)" value={fundingNeeded} onChange={(e) => setFundingNeeded(e.target.value)} placeholder="e.g. 500,000" />
+                    <Input label="Website" value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://" />
+                  </div>
+                </div>
+              )}
+
+              {user.role === 'investor' && (
+                <div className="pt-6 border-t border-gray-200">
+                  <h3 className="text-sm font-medium text-gray-900 mb-4">Investment Preferences</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <Input label="Investment Interests (comma separated)" value={investmentInterests} onChange={(e) => setInvestmentInterests(e.target.value)} placeholder="e.g. SaaS, Cleantech" />
+                    <div className="flex gap-4">
+                      <Input label="Min Inv." value={minimumInvestment} onChange={(e) => setMinimumInvestment(e.target.value)} placeholder="e.g. 10k" />
+                      <Input label="Max Inv." value={maximumInvestment} onChange={(e) => setMaximumInvestment(e.target.value)} placeholder="e.g. 1M" />
+                    </div>
+                  </div>
+                </div>
+              )}
               
               <div className="flex justify-end gap-3">
                 <Button variant="outline">Cancel</Button>
-                <Button>Save Changes</Button>
+                <Button onClick={handleSave} disabled={isSaving} leftIcon={isSaving ? <Loader2 size={16} className="animate-spin" /> : undefined}>
+                  Save Changes
+                </Button>
               </div>
             </CardBody>
           </Card>
